@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Attendance Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h2 { margin-bottom: 10px; }
+    label { font-weight: bold; margin-right: 10px; }
+    select { padding: 5px; margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    .Weak { background-color: #f8d7da; }
+    .Average { background-color: #fff3cd; }
+    .Strong { background-color: #d4edda; }
+  </style>
+</head>
+<body>
+  <h2>AI Attendance Dashboard</h2>
+
+  <label for="gradeSelect">Select Grade:</label>
+  <select id="gradeSelect"></select>
+
+  <canvas id="clusterChart" width="400" height="200"></canvas>
+
+  <table id="studentTable">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Full Name</th>
+        <th>Predicted Attendance</th>
+        <th>Recommendation</th>
+        <th>Cluster</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const gradeSelect = document.getElementById('gradeSelect');
+    const studentTableBody = document.querySelector('#studentTable tbody');
+    const ctx = document.getElementById('clusterChart').getContext('2d');
+    let chart;
+
+    async function loadData() {
+      try {
+        // Step 1: Fetch grades from backend
+        const gradeRes = await fetch('http://localhost:5000/api/ai/grades');
+        const grades = await gradeRes.json();
+
+        gradeSelect.innerHTML = '';
+        grades.forEach(g => {
+          const option = document.createElement('option');
+          option.value = g._id;
+          option.textContent = `${g.grade} - ${g.className}`;
+          gradeSelect.appendChild(option);
+        });
+
+        // Step 2: Fetch AI recommendations
+        const aiRes = await fetch('http://localhost:5001/recommend_weak_students');
+        const aiData = await aiRes.json();
+
+        // Step 3: Load first grade initially
+        if (grades.length > 0) updateDashboard(grades[0]._id, aiData);
+
+        gradeSelect.addEventListener('change', () => {
+          updateDashboard(gradeSelect.value, aiData);
+        });
+
+      } catch (err) {
+        console.error('Error loading data:', err);
+      }
+    }
+
+    function updateDashboard(classId, aiData) {
+      const students = aiData[classId] || [];
+
+      // Update table
+      studentTableBody.innerHTML = '';
+      students.forEach(s => {
+        const row = document.createElement('tr');
+        row.className = s.cluster; // color row based on cluster
+        row.innerHTML = `
+          <td>${s.studentId}</td>
+          <td>${s.fullName}</td>
+          <td>${s.predicted_next_week_attendance}</td>
+          <td>${s.recommendation}</td>
+          <td>${s.cluster}</td>
+        `;
+        studentTableBody.appendChild(row);
+      });
+
+      // Prepare chart data
+      const clusters = { Weak: 0, Average: 0, Strong: 0 };
+      students.forEach(s => { clusters[s.cluster] += 1; });
+
+      const chartData = {
+        labels: ['Weak', 'Average', 'Strong'],
+        datasets: [{
+          label: 'Students per Cluster',
+          data: [clusters.Weak, clusters.Average, clusters.Strong],
+          backgroundColor: ['#f8d7da', '#fff3cd', '#d4edda']
+        }]
+      };
+
+      if (chart) chart.destroy(); // destroy previous chart
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, stepSize: 1 } }
+        }
+      });
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
