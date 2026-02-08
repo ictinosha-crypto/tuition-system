@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from "cors";
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
@@ -63,15 +64,22 @@ const PORT = process.env.PORT || 5000;
 
 
 
+
+app.use(cors({
+  origin: "*",   // later you can restrict to Netlify URL
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 // Middleware to parse form data and JSON
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect('mongodb://127.0.0.1:27017/tuition', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Atlas connected"))
+  .catch(err => console.error("MongoDB connection error:", err));
+
 
 const db = mongoose.connection;
 db.once('open', () => {
@@ -81,7 +89,7 @@ db.once('open', () => {
 
 
 //**************************** */
-app.use(express.static('frontend'));
+//app.use(express.static('frontend'));
 
 //class schema
 const classSchema = new mongoose.Schema({
@@ -2174,98 +2182,6 @@ const QuizResult = mongoose.models.QuizResult || mongoose.model('QuizResult', qu
 
 // --------- Route: handle quiz submit ----------
 app.post('/api/quiz/submit', async (req, res) => {
-  try {
-    const { studentId, answers } = req.body; // answers: { q1: 'b', q2: 'a', ... } and include question->topic mapping if possible
-
-    // Basic validation
-    if (!studentId || !answers) return res.status(400).json({ message: 'studentId and answers required' });
-
-    // Map your quiz's correct answers and topics (adjust to your quiz)
-    // Example mapping – update to match your quiz
-    const quizKey = {
-      q1: { correct: 'b', topic: 'Binary Numbers' },
-      q2: { correct: 'b', topic: 'HTML Basics' },
-      q3: { correct: 'a', topic: 'HTML Basics' }
-    };
-
-    let score = 0;
-    let maxScore = Object.keys(quizKey).length;
-    let topicResults = [];
-
-    // compute topic-level correctness
-    for (const q in quizKey) {
-      const correct = quizKey[q].correct;
-      const topic = quizKey[q].topic;
-      const ans = answers[q];
-
-      const isCorrect = ans && ans === correct;
-      if (isCorrect) score++;
-      topicResults.push({ topic, correct: !!isCorrect });
-    }
-
-    // Simple rule-based feedback logic
-    // count incorrect topics
-    const topicSummary = {};
-    topicResults.forEach(t => {
-      if (!topicSummary[t.topic]) topicSummary[t.topic] = { correct: 0, total: 0 };
-      topicSummary[t.topic].total++;
-      if (t.correct) topicSummary[t.topic].correct++;
-    });
-
-    const weakTopics = [];
-    for (const t in topicSummary) {
-      const { correct, total } = topicSummary[t];
-      // If < 60% correct for topic, mark as weak (tune threshold)
-      if ((correct / total) < 0.6) weakTopics.push(t);
-    }
-
-    // Prepare rule-based feedback
-    let ruleFeedback = '';
-    if (score === maxScore) ruleFeedback = 'Excellent — you answered all questions correctly!';
-    else if (score >= Math.ceil(maxScore * 0.7)) ruleFeedback = 'Good work — revise a few areas.';
-    else if (score >= Math.ceil(maxScore * 0.4)) ruleFeedback = 'You need more practice. Focus on the recommended topics.';
-    else ruleFeedback = 'Please review the basics. Start with foundational notes and videos.';
-
-    // Save quiz result for ML training later
-    const quizDoc = new QuizResult({
-      studentId,
-      // optionally set studentRef if you have ObjectId
-      score,
-      maxScore,
-      topicResults,
-      rawAnswers: answers
-    });
-    await quizDoc.save();
-
-    // Now call ML service to get long-term prediction (synchronous call)
-    // Replace URL if your model server runs elsewhere (e.g., http://127.0.0.1:6000/api/predict)
-    let mlResponse = null;
-    try {
-      const mlRes = await fetch('http://127.0.0.1:6000/api/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId })
-      });
-      if (mlRes.ok) mlResponse = await mlRes.json();
-    } catch (err) {
-      console.error('ML service call failed:', err.message);
-    }
-
-    // Combine response
-    return res.json({
-      ok: true,
-      studentId,
-      score,
-      maxScore,
-      ruleFeedback,
-      weakTopics,
-      mlSuggestions: mlResponse || null
-    });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: 'Server error' });
-  }
 });
 
 
