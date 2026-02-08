@@ -2276,7 +2276,8 @@ app.use("/api/report_gen", createReportRoutes({Student1, Payment,Class,Attendenc
 app.use("/api/ai_r", createairoute({ Student1, Payment, Attendence_new, Class }));
 //app.use("/api/airoutes", airoutes({ Student1, Payment, Attendence_new, Class }));
 app.use("/api/ai", airoutes({ Student1, Payment, Attendence_new, Class }));
-app.use("/api/users", userRoutes);
+//app.use("/api/users", userRoutes);
+app.use("/api", userRoutes); 
 const dashboardRouter = createdashboardroute({ Student1, Payment, Attendence_new, Class });
 app.use("/api/dashboard", dashboardRouter);
 const mldataRouter = createMLDataRoute({ Student1, Attendence_new });
