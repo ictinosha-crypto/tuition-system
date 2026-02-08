@@ -1,4 +1,9 @@
 import express from 'express';
+app.use(cors({
+  origin: "*",   // later you can restrict to Netlify URL
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 import cors from "cors";
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
@@ -2326,3 +2331,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server started at port ${PORT}`);
 });
+
